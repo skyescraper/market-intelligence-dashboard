@@ -1,0 +1,252 @@
+import { NextResponse } from "next/server";
+import Parser from "rss-parser";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const parser = new Parser();
+
+interface KOLUpdate {
+  title: string;
+  titleEn: string;
+  description: string;
+  source: string;
+  company: string;
+  isKOL: boolean;
+  kolName?: string;
+  url: string;
+  publishedAt: Date;
+  category: string;
+  importance: 1 | 2 | 3;
+  tags: string[];
+  platform: "X" | "Blog" | "LinkedIn" | "Official";
+}
+
+// 竞品官方公告频道 - 只要产品/业务动态，不要新闻
+const PLATFORM_ANNOUNCEMENTS = {
+  // 币圈交易所官方公告
+  binance: {
+    url: "https://www.binance.com/en/support/announcement/new-cryptocurrency-listing?c=48&navId=48",
+    rss: "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&pageSize=20",
+    company: "Binance",
+    category: "币圈交易所" as const,
+    keywords: ["listing", "delist", "launch", "perpetual", "futures", "product", "feature"],
+  },
+  okx: {
+    rss: "https://www.okx.com/support/hc/en-us/sections/115000277853-Announcements",
+    company: "OKX",
+    category: "币圈交易所" as const,
+    keywords: ["listing", "delist", "launch", "trading", "product"],
+  },
+  coinbase: {
+    rss: "https://blog.coinbase.com/tagged/product-updates",
+    company: "Coinbase",
+    category: "币圈交易所" as const,
+    keywords: ["launch", "product", "feature", "available", "support"],
+  },
+  kraken: {
+    rss: "https://blog.kraken.com/feed",
+    company: "Kraken",
+    category: "币圈交易所" as const,
+    keywords: ["listing", "launch", "trading", "feature"],
+  },
+  // CFD 券商
+  iggroup: {
+    rss: "https://www.ig.com/en/news-and-trade-ideas/company-news",
+    company: "IG Group",
+    category: "CFD券商" as const,
+    keywords: ["platform", "product", "launch", "feature", "service"],
+  },
+  plus500: {
+    rss: "https://www.plus500.com/en/newsandmarketinsights/company-announcements",
+    company: "Plus500",
+    category: "CFD券商" as const,
+    keywords: ["platform", "instrument", "launch", "feature"],
+  },
+  // 传统券商
+  robinhood: {
+    rss: "https://blog.robinhood.com/feed",
+    company: "Robinhood",
+    category: "传统券商" as const,
+    keywords: ["launch", "product", "feature", "crypto", "available"],
+  },
+};
+
+// 监管机构 - 只要牌照和业务审批相关
+const REGULATORY_FEEDS = [
+  {
+    url: "https://www.fca.org.uk/news/rss.xml",
+    company: "FCA",
+    category: "牌照监管" as const,
+    keywords: ["license", "approval", "registration", "authorization", "permit"],
+  },
+];
+
+// 政府机构 - 聚焦 RWA、数字资产政策
+const GOVERNMENT_FEEDS = [
+  {
+    url: "https://www.mas.gov.sg/news/rss-feeds/media-releases",
+    company: "MAS",
+    category: "政府" as const,
+    keywords: ["digital", "token", "RWA", "asset", "stablecoin", "framework", "license"],
+  },
+];
+
+// 支付公司
+const PAYMENT_FEEDS = [
+  {
+    url: "https://usa.visa.com/about-visa/newsroom/press-releases.rss",
+    company: "Visa",
+    category: "支付" as const,
+    keywords: ["crypto", "digital", "blockchain", "stablecoin", "settlement"],
+  },
+];
+
+async function fetchRSSFeed(
+  feedUrl: string,
+  company: string,
+  category: string
+): Promise<KOLUpdate[]> {
+  try {
+    const feed = await parser.parseURL(feedUrl);
+
+    if (!feed || !feed.items) {
+      console.warn(`Empty feed from ${company}`);
+      return [];
+    }
+
+    return feed.items.slice(0, 10).map((item) => {
+      const title = item.title || "";
+      const description = item.contentSnippet || item.content?.substring(0, 200) || "";
+
+      // Detect if content mentions executives/KOLs
+      const kolKeywords = ["CEO", "founder", "executive", "announces", "says", "stated", "comments"];
+      const hasKOLMention = kolKeywords.some(
+        (kw) => title.toLowerCase().includes(kw) || description.toLowerCase().includes(kw)
+      );
+
+      // Extract potential KOL name
+      const kolMatch = title.match(/(CEO|Founder|Executive)\s+(\w+\s+\w+)/i);
+      const kolName = kolMatch ? kolMatch[2] : undefined;
+
+      // Determine importance
+      const highPriorityWords = ["regulation", "launch", "partnership", "acquisition", "CEO"];
+      const importance = highPriorityWords.some((word) =>
+        title.toLowerCase().includes(word)
+      )
+        ? 3
+        : Math.random() > 0.5
+        ? 2
+        : 1;
+
+      return {
+        title: title.substring(0, 150),
+        titleEn: title.substring(0, 150),
+        description: description.substring(0, 250),
+        source: company,
+        company,
+        isKOL: hasKOLMention,
+        kolName,
+        url: item.link || "",
+        publishedAt: new Date(item.pubDate || Date.now()),
+        category: category as any,
+        importance: importance as 1 | 2 | 3,
+        tags: extractTags(title),
+        platform: (hasKOLMention ? "Official" : "Blog") as const,
+      };
+    });
+  } catch (error) {
+    console.error(`Failed to fetch ${company}:`, error);
+    return [];
+  }
+}
+
+function extractTags(text: string): string[] {
+  const tags = [];
+  const keywords = [
+    "BTC", "ETH", "Bitcoin", "Ethereum", "SEC", "FCA", "MAS",
+    "DeFi", "NFT", "ETF", "Regulation", "Trading", "CFD",
+  ];
+
+  for (const keyword of keywords) {
+    if (text.toUpperCase().includes(keyword.toUpperCase())) {
+      tags.push(keyword);
+    }
+  }
+
+  return tags.slice(0, 4);
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const limit = parseInt(searchParams.get("limit") || "20");
+  const category = searchParams.get("category");
+
+  try {
+    // Fetch Twitter KOLs with proper error handling
+    let twitterData = { posts: [] };
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+      const twitterUrl = `${baseUrl}/api/social/twitter-kols?limit=30${category ? `&category=${encodeURIComponent(category)}` : ""}`;
+
+      const twitterRes = await fetch(twitterUrl, {
+        next: { revalidate: 1800 },
+      });
+
+      if (twitterRes.ok) {
+        twitterData = await twitterRes.json();
+      }
+    } catch (twitterError) {
+      console.warn("Failed to fetch Twitter KOLs:", twitterError);
+      // Continue without Twitter data
+    }
+
+    // Fetch all RSS feeds in parallel
+    const allFeeds = [
+      ...Object.values(INDUSTRY_LEADERS).map((leader) =>
+        fetchRSSFeed(leader.blog || leader.news || "", leader.company, leader.category)
+      ),
+      ...REGULATORY_FEEDS.map((feed) =>
+        fetchRSSFeed(feed.url, feed.company, feed.category)
+      ),
+      ...GOVERNMENT_FEEDS.map((feed) =>
+        fetchRSSFeed(feed.url, feed.company, feed.category)
+      ),
+      ...CRYPTO_NEWS_FEEDS.map((feed) =>
+        fetchRSSFeed(feed.url, feed.company, feed.category)
+      ),
+    ];
+
+    const rssUpdates = (await Promise.all(allFeeds)).flat();
+
+    // Normalize Twitter data dates
+    const twitterPosts = (twitterData.posts || []).map((post: any) => ({
+      ...post,
+      publishedAt: new Date(post.publishedAt),
+    }));
+
+    // Combine RSS and Twitter data
+    const allUpdates = [...rssUpdates, ...twitterPosts]
+      .filter((update) => update.publishedAt instanceof Date && !isNaN(update.publishedAt.getTime()))
+      .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
+
+    // Filter by category if specified
+    const filteredUpdates = category
+      ? allUpdates.filter((u) => u.category === category)
+      : allUpdates;
+
+    return NextResponse.json({
+      updates: filteredUpdates.slice(0, limit),
+      total: filteredUpdates.length,
+      kolCount: filteredUpdates.filter((u) => u.isKOL).length,
+      twitterCount: twitterData.posts?.length || 0,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("KOL updates error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch industry updates" },
+      { status: 500 }
+    );
+  }
+}

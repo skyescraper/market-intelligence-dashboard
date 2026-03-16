@@ -1,26 +1,31 @@
-# Market Intelligence Dashboard
+# 🚀 Market Intelligence Dashboard
 
-个人市场情报监控系统 - 专为交易所产品经理、业余投资者和自由职业者设计的三面板仪表板。
+个人市场情报仪表板，集成加密货币、股票、外汇、AI Agent趋势和行业动态的实时监控系统。
 
-## 功能特性
+## ✨ 核心功能
 
-### 📈 面板一：交易产品监控
-- 加密货币和股票热度追踪
-- Reddit 社区讨论量监控
-- 实时价格变化和趋势
-- AI 驱动的关注建议和风险提示
+### 📊 Trading Monitor（交易监控）
+- **多资产类别**：加密货币、股票、外汇、大宗商品
+- **AI投资建议**：基于5维分析（技术面、情绪、新闻、社媒、专家观点）
+- **精确价格建议**：具体买入区间、止盈/止损价位
+- **智能推荐**：不总是推荐第一名，真正分析性价比
+- **5种排序方式**：市值、波动率、交易量、情绪、24h涨幅
+- **Confidence Level**：High/Medium/Low信心等级评估
 
-### 🤖 面板二：AI 趋势
-- ProductHunt 和 HackerNews AI 工具发现
-- AI 行业新闻聚合
-- 创业项目追踪
-- 社区情绪分析
+### 🤖 AI Agent 雷达
+- **热门Agent追踪**：从HackerNews和Reddit抓取最新Agent工具
+- **用途标注**：每个Agent都有明确的使用场景说明
+- **智能分类**：Coding Agent、Research Agent、Workflow Agent等
+- **实时更新**：追踪最新的自主Agent和多Agent系统
+- **每日AI总结**：深度分析AI Agent趋势和关键亮点
 
-### 🏢 面板三：行业趋势
-- 监管机构公告（SEC, MAS, FCA等）
-- 主流交易所动态
-- 链上 TVL 数据
-- 竞品分析
+### 🏢 Industry Trends（行业动态）
+- **多源数据聚合**：Twitter KOL、交易所公告、监管动态、小红书讨论
+- **智能过滤**：只显示产品公告和业务动态，过滤价格分析
+- **KOL发言追踪**：CZ、Brian Armstrong、Vitalik等行业领袖
+- **分类浏览**：X、小红书、币圈交易所、CFD券商、传统券商、监管机构等
+- **每日AI总结**：深度分析当日关键要点（Daily Key Takeaway）
+- **重要性评级**：1-3星标注公告重要程度
 
 ## 技术栈
 

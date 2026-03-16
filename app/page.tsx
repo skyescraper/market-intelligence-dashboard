@@ -1,19 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { TradingPanel } from "@/components/panels/trading-panel";
-import { AIPanel } from "@/components/panels/ai-panel";
-import { IndustryPanel } from "@/components/panels/industry-panel";
+import { TradingPanelEnhanced } from "@/components/panels/trading-panel-enhanced";
+import { AIPanelEnhanced } from "@/components/panels/ai-panel-enhanced";
+import { IndustryPanelEnhanced } from "@/components/panels/industry-panel-enhanced";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const [timeRange, setTimeRange] = useState<"1H" | "24H" | "7D">("24H");
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = () => {
     setLastUpdate(new Date());
-    // TODO: Trigger API refresh
+    setRefreshKey((prev) => prev + 1);
   };
 
   return (
@@ -61,21 +62,21 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Three Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+      {/* Three Column Layout - Fixed Height with Independent Scrolling */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 h-[calc(100vh-12rem)]">
         {/* Panel 1: Trading Monitor */}
-        <div className="lg:col-span-1">
-          <TradingPanel timeRange={timeRange} />
+        <div className="lg:col-span-1 h-full">
+          <TradingPanelEnhanced timeRange={timeRange} refreshKey={refreshKey} />
         </div>
 
         {/* Panel 2: AI Trends */}
-        <div className="lg:col-span-1">
-          <AIPanel timeRange={timeRange} />
+        <div className="lg:col-span-1 h-full">
+          <AIPanelEnhanced timeRange={timeRange} refreshKey={refreshKey} />
         </div>
 
         {/* Panel 3: Industry Trends */}
-        <div className="lg:col-span-1">
-          <IndustryPanel timeRange={timeRange} />
+        <div className="lg:col-span-1 h-full">
+          <IndustryPanelEnhanced timeRange={timeRange} refreshKey={refreshKey} />
         </div>
       </div>
     </div>

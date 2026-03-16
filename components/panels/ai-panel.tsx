@@ -1,67 +1,48 @@
 "use client";
 
-import { Sparkles, ThumbsUp, Heart, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, ThumbsUp, ExternalLink, Loader2 } from "lucide-react";
+import { formatDateGMT8 } from "@/lib/date-utils";
+import type { AITool, NewsItem } from "@/lib/types";
 
 interface AIPanelProps {
   timeRange: "1H" | "24H" | "7D";
+  refreshKey: number;
 }
 
-// Mock data
-const mockTools = [
-  {
-    name: "v0.dev AI",
-    category: "Code Generation",
-    description: "Generate UI components from text descriptions",
-    votes: 2834,
-    sentiment: "LOVED",
-    pricing: "Freemium",
-    url: "#",
-  },
-  {
-    name: "Cursor AI",
-    category: "Development",
-    description: "AI-powered code editor with context awareness",
-    votes: 1892,
-    sentiment: "USEFUL",
-    pricing: "Paid",
-    url: "#",
-  },
-  {
-    name: "Claude Code",
-    category: "Productivity",
-    description: "AI assistant for software development tasks",
-    votes: 1543,
-    sentiment: "LOVED",
-    pricing: "Paid",
-    url: "#",
-  },
-];
+export function AIPanel({ timeRange, refreshKey }: AIPanelProps) {
+  const [tools, setTools] = useState<AITool[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const mockNews = [
-  {
-    title: "OpenAI releases GPT-5 with advanced reasoning",
-    category: "Model Breakthrough",
-    stars: 3,
-    source: "TechCrunch",
-    time: "2h ago",
-  },
-  {
-    title: "EU AI Act enters enforcement phase",
-    category: "Policy",
-    stars: 3,
-    source: "Reuters",
-    time: "5h ago",
-  },
-  {
-    title: "Anthropic raises $450M Series D",
-    category: "Funding",
-    stars: 2,
-    source: "The Information",
-    time: "8h ago",
-  },
-];
+  useEffect(() => {
+    fetchData();
+  }, [timeRange, refreshKey]);
 
-export function AIPanel({ timeRange }: AIPanelProps) {
+  async function fetchData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [toolsRes, newsRes] = await Promise.all([
+        fetch("/api/ai-tools"),
+        fetch("/api/news"),
+      ]);
+
+      if (!toolsRes.ok || !newsRes.ok) throw new Error("Failed to fetch");
+
+      const toolsData = await toolsRes.json();
+      const newsData = await newsRes.json();
+
+      setTools(toolsData.tools || []);
+      setNews(newsData.news?.slice(0, 5) || []);
+    } catch (err) {
+      setError("Failed to load data");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
   return (
     <div className="bg-card rounded-xl border border-border p-4 md:p-6 h-full">
       <div className="flex items-center justify-between mb-6">
@@ -69,13 +50,28 @@ export function AIPanel({ timeRange }: AIPanelProps) {
         <Sparkles className="h-5 w-5 text-secondary" />
       </div>
 
-      {/* AI Tools Section */}
-      <div className="mb-6">
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">
-          🔥 Trending Tools
-        </h3>
-        <div className="space-y-2">
-          {mockTools.map((tool) => (
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="h-6 w-6 animate-spin text-secondary" />
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-destructive/10 text-destructive rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          {/* AI Tools Section */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              🔥 Trending Tools
+            </h3>
+            <div className="space-y-2">
+              {tools.slice(0, 3).map((tool) => (
             <div
               key={tool.name}
               className="bg-muted/50 rounded-lg p-3 border border-border/50 hover:border-secondary/50 transition-colors"
@@ -116,42 +112,67 @@ export function AIPanel({ timeRange }: AIPanelProps) {
                   {tool.sentiment}
                 </span>
               </div>
+              <div className="mt-2 pt-2 border-t border-border/30">
+                <p className="text-xs text-muted-foreground">{formatDateGMT8(tool.timestamp)}</p>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* AI News Section */}
-      <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">
-          📰 Latest News
-        </h3>
-        <div className="space-y-2">
-          {mockNews.map((news, i) => (
-            <div
-              key={i}
-              className={`bg-muted/50 rounded-lg p-3 border transition-colors cursor-pointer ${
-                news.stars === 3
-                  ? "border-orange-500/50 hover:border-orange-500"
-                  : "border-border/50 hover:border-secondary/50"
-              }`}
-            >
-              <div className="flex items-start gap-2 mb-1">
-                <span className="text-xs shrink-0">
-                  {"⭐".repeat(news.stars)}
-                </span>
-                <h4 className="font-medium text-sm text-foreground line-clamp-2 flex-1">
-                  {news.title}
-                </h4>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{news.source}</span>
-                <span className="text-muted-foreground">{news.time}</span>
-              </div>
+          {/* AI News Section */}
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              📰 Latest News
+            </h3>
+            <div className="space-y-2">
+              {news.map((item, i) => (
+                <a
+                  key={i}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`block bg-muted/50 rounded-lg p-3 border transition-colors cursor-pointer ${
+                    item.importance === 3
+                      ? "border-orange-500/50 hover:border-orange-500"
+                      : "border-border/50 hover:border-secondary/50"
+                  }`}
+                >
+                  <div className="flex items-start gap-2 mb-1">
+                    <span className="text-xs shrink-0">
+                      {"⭐".repeat(item.importance)}
+                    </span>
+                    <h4 className="font-medium text-sm text-foreground line-clamp-2 flex-1">
+                      {item.title}
+                    </h4>
+                  </div>
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      {item.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-2">
+                    {item.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="px-2 py-0.5 text-xs rounded-full bg-secondary/10 text-secondary"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-xs mt-2">
+                    <span className="text-muted-foreground">{item.source}</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-border/30">
+                    <p className="text-xs text-muted-foreground">{formatDateGMT8(item.publishedAt)}</p>
+                  </div>
+                </a>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
